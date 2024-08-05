@@ -15,15 +15,14 @@ const transporter = nodemailer.createTransport({
     },
 })
 
-const handleSendMail = async (val, toEmail) => {
+const test = async (req, res) => {
+    const a = req.body
+    res.send('test')
+}
+
+const handleSendMail = async (val) => {
     try {
-        await transporter.sendMail({
-            from: `"GreenD 👻" <${process.env.USERNAME_EMAIL}>`, // sender address
-            to: toEmail, // list of receivers
-            subject: "Hello ✔", // Subject line
-            text: "Mã của mày", // plain text body
-            html: "<b>32424</b>", // html body
-        });
+        await transporter.sendMail(val);
         return 'Ok'
     }
     catch (e) {
@@ -35,20 +34,22 @@ const handleSendMail = async (val, toEmail) => {
 const verification = asyncHandle(async (req, res) => {
     const { email } = req.body
     const verificationCode = Math.floor(1000 + Math.random() * 9000);
-    try {
-        await handleSendMail('', email)
-        res.status(200).json({
-            message: 'Gửi mã xác thực thành công',
-            data: {
-                code: verificationCode
-            }
-        })
-        console.log('Mã xác thực: ', verificationCode)
-    }
-    catch (e) {
-        console.log('lỗi varification ', e)
+    const dataEmail = {
+        from: `"GreenD 👻" <${process.env.USERNAME_EMAIL}>`, // sender address
+        to: email, // list of receivers
+        subject: "Hello ✔", // Subject line
+        text: "Mã của mày", // plain text body
+        html: `<b>${verificationCode}</b>`, // html body
     }
 
+    await handleSendMail(dataEmail)
+    res.status(200).json({
+        message: 'Gửi mã xác thực thành công',
+        data: {
+            code: verificationCode
+        }
+    })
+    console.log('Mã xác thực: ', verificationCode)
 })
 
 
@@ -62,46 +63,40 @@ const getJsonWebToken = async (email, id) => {
 }
 
 const register = asyncHandle(async (req, res) => {
-    try {
-        const { email, password, username } = req.body;
+    const { email, password, username } = req.body;
 
-        // Kiểm tra xem email đã tồn tại chưa
-        const existEmail = await UserModel.findOne({ email });
-        if (existEmail) {
-            console.log('Email đã được sử dụng')
-            return res.status(400).json({ message: 'Email đã được sử dụng' });
-        }
-
-        // Tạo muối và băm mật khẩu
-        const salt = await bcrypt.genSalt(10);
-        const hashPassword = await bcrypt.hash(password, salt);
-
-        // Tạo người dùng mới với mật khẩu đã được băm
-        const newUser = new UserModel({
-            email: email,
-            username: username ?? '',
-            password: hashPassword
-        });
-
-        // Lưu người dùng mới vào cơ sở dữ liệu
-        await newUser.save();
-
-        // Trả về phản hồi thành công
-        const accessToken = await getJsonWebToken(email, newUser.id);
-        console.log('Đăng ký người dùng mới thành công')
-        return res.status(200).json({
-            message: "Đăng ký người dùng mới thành công",
-            data: {
-                email: newUser.email,
-                id: newUser.id,
-                accessToken
-            }
-        });
-    } catch (error) {
-        // Xử lý lỗi
-        console.error(error);
-        return res.status(500).json({ message: 'Đã xảy ra lỗi trong quá trình đăng ký' });
+    // Kiểm tra xem email đã tồn tại chưa
+    const existEmail = await UserModel.findOne({ email });
+    if (existEmail) {
+        console.log('Email đã được sử dụng')
+        return res.status(400).json({ message: 'Email đã được sử dụng' });
     }
+
+    // Tạo muối và băm mật khẩu
+    const salt = await bcrypt.genSalt(10);
+    const hashPassword = await bcrypt.hash(password, salt);
+
+    // Tạo người dùng mới với mật khẩu đã được băm
+    const newUser = new UserModel({
+        email: email,
+        username: username ?? '',
+        password: hashPassword
+    });
+
+    // Lưu người dùng mới vào cơ sở dữ liệu
+    await newUser.save();
+
+    // Trả về phản hồi thành công
+    const accessToken = await getJsonWebToken(email, newUser.id);
+    console.log('Đăng ký người dùng mới thành công')
+    return res.status(200).json({
+        message: "Đăng ký người dùng mới thành công",
+        data: {
+            email: newUser.email,
+            id: newUser.id,
+            accessToken
+        }
+    });
 });
 
 
@@ -120,7 +115,6 @@ const login = asyncHandle(async (req, res) => {
             message: 'Email hoặc mật khẩu không chính xác'
         })
         throw new Error('Email hoặc mật khẩu không chính xác')
-        return;
     }
     res.status(200).json({
         message: "Đăng nhập thành công",
@@ -132,9 +126,113 @@ const login = asyncHandle(async (req, res) => {
     });
 })
 
+const forgotPassword = asyncHandle(async (req, res) => {
+    const { email } = req.body
+    const newPass = Math.floor(100000 + Math.random() * 900000);
+    const dataEmail = {
+        from: `"GreenD 👻" <${process.env.USERNAME_EMAIL}>`, // sender address
+        to: email, // list of receivers
+        subject: "Hello ✔", // Subject line
+        text: "Mã của mày", // plain text body
+        html: `<b>Mật khẩu mới của bạn là: ${newPass}</b>`, // html body
+    }
+    //tìm tài khoản và đổi pas cho user
+    const user = await UserModel.findOne({ email })
+    if (user) {
+        // Tạo muối và băm mật khẩu
+        const salt = await bcrypt.genSalt(10);
+        const hashPassword = await bcrypt.hash(newPass.toString(), salt)
+
+        await UserModel.findByIdAndUpdate(user._id, {
+            password: hashPassword,
+            isChangePassword: true
+        })
+
+        //gửi pass mới cho user
+        await handleSendMail(dataEmail)
+        res.status(200).json({
+            message: 'Gửi mật khẩu mới thành công',
+            data: {
+                password: newPass
+            }
+        })
+        console.log('Mật khẩu: ', newPass)
+    }
+    else {
+        res.status(404)
+        // throw new Error('User not found')
+        console.log('User not found')
+        return
+    }
+})
+
+const googleSignin = asyncHandle(async (req, res) => {
+    const userInfo = req.body
+    const existingUser = await UserModel.findOne({ email: userInfo.email });
+
+    if (existingUser) {
+        await UserModel.findByIdAndUpdate(existingUser.id, {
+            updatedAt: Date.now(),
+        });
+        user = { ...existingUser };
+        user.accessToken = await getJsonWebToken(userInfo.email, userInfo.id);
+
+        if (user) {
+            const data = {
+                accessToken: user.accessToken,
+                id: existingUser._id,
+                email: existingUser.email,
+                fcmTokens: existingUser.fcmTokens,
+                photo: existingUser.photoUrl,
+                name: existingUser.name,
+            };
+
+            res.status(200).json({
+                message: 'Login with google successfully!!!',
+                data,
+            });
+        } else {
+            res.sendStatus(401);
+            throw new Error('fafsf');
+        }
+    }
+    else {
+        const newUser = new UserModel({
+            email: userInfo.email,
+            username: userInfo.name,
+            ...userInfo,
+        });
+        await newUser.save();
+        user = { ...newUser };
+        user.accessToken = await getJsonWebToken(userInfo.email, newUser.id);
+
+        if (user) {
+            res.status(200).json({
+                message: 'Login with google successfully!!!',
+                data: {
+                    accessToken: user.accessToken,
+                    id: user._id,
+                    email: user.email,
+                    fcmTokens: user.fcmTokens,
+                    photo: user.photoUrl,
+                    name: user.name,
+                },
+            });
+        } else {
+            res.sendStatus(401);
+            throw new Error('fafsf');
+        }
+    }
+
+    console.log(userInfo)
+    res.send('login gg be')
+})
 
 module.exports = {
+    test,
     register,
     login,
     verification,
+    forgotPassword,
+    googleSignin,
 };
