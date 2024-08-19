@@ -121,6 +121,7 @@ const login = asyncHandle(async (req, res) => {
         data: {
             email: existUser.email,
             id: existUser.id,
+            username: existUser.username,
             accessToken: await getJsonWebToken(email, existUser.id)
         }
     });
@@ -169,6 +170,7 @@ const forgotPassword = asyncHandle(async (req, res) => {
 const googleSignin = asyncHandle(async (req, res) => {
     const userInfo = req.body
     const existingUser = await UserModel.findOne({ email: userInfo.email });
+    let user;
 
     if (existingUser) {
         await UserModel.findByIdAndUpdate(existingUser.id, {
@@ -183,8 +185,8 @@ const googleSignin = asyncHandle(async (req, res) => {
                 id: existingUser._id,
                 email: existingUser.email,
                 fcmTokens: existingUser.fcmTokens,
-                photo: existingUser.photoUrl,
-                name: existingUser.name,
+                photo: existingUser.photo,
+                username: existingUser.username,
             };
 
             res.status(200).json({
@@ -199,7 +201,7 @@ const googleSignin = asyncHandle(async (req, res) => {
     else {
         const newUser = new UserModel({
             email: userInfo.email,
-            username: userInfo.name,
+            username: userInfo.username,
             ...userInfo,
         });
         await newUser.save();
@@ -215,17 +217,15 @@ const googleSignin = asyncHandle(async (req, res) => {
                     email: user.email,
                     fcmTokens: user.fcmTokens,
                     photo: user.photoUrl,
-                    name: user.name,
+                    username: user.username,
                 },
             });
         } else {
             res.sendStatus(401);
-            throw new Error('fafsf');
+            throw new Error('Lỗi ');
         }
     }
-
-    console.log(userInfo)
-    res.send('login gg be')
+    console.log('data user nhận từ FE: ',userInfo)
 })
 
 module.exports = {

@@ -3,6 +3,8 @@ const cors = require('cors');
 const authRouter = require('./src/routers/authRoute');
 const database = require('./src/configs/database');
 const errorMiddleware = require('./src/middlewares/errorMiddleware');
+const userRouter = require('./src/routers/userRoute');
+const verifyToken = require('./src/middlewares/verifyMiddleware');
 require('dotenv').config()
 
 // Tạo một ứng dụng Express
@@ -17,6 +19,7 @@ database();
 
 // Đăng ký các tuyến đường
 app.use('/auth', authRouter);
+app.use('/user', verifyToken, userRouter)
 
 // Đăng ký middleware xử lý lỗi
 app.use(errorMiddleware);
